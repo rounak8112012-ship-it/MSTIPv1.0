@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Meghalaya Ultimate Map - Google Hybrid + 3D Terrain | Offbeat Potential | Dashboard</title>
+    <!-- Leaflet CSS + JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- MarkerCluster -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <!-- Chart.js for dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #eef4ea;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            background: #1e3c2c;
+            color: white;
+            padding: 8px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+        .header h1 {
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+        }
+        .header p {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+        .map-container {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            position: relative;
+        }
+        #map {
+            flex: 3;
+            min-width: 60%;
+            height: 100%;
+            background: #d9e6d4;
+        }
+        .sidebar {
+            flex: 1;
+            min-width: 330px;
+            background: #fefaf0;
+            border-left: 4px solid #2c6e2c;
+            overflow-y: auto;
+            padding: 16px;
+            box-shadow: -2px 0 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .routing-panel, .nearby-panel, .legend-section, .offbeat-panel, .basemap-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .routing-panel h3, .nearby-panel h3, .legend-section h3, .offbeat-panel h3, .basemap-panel h3 {
+            margin-bottom: 10px;
+            color: #1e3c2c;
+            border-left: 4px solid #6f9e6f;
+            padding-left: 10px;
+            font-size: 1rem;
+        }
+        .btn {
+            background: #2c6e2c;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            margin: 3px 3px 0 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-danger { background: #b33b2c; }
+        .btn-secondary { background: #4a6a8b; }
+        .selected-point {
+            background: #e9f5e6;
+            padding: 6px;
+            border-radius: 12px;
+            margin: 6px 0;
+            font-size: 0.75rem;
+            border-left: 3px solid #2c6e2c;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            gap: 8px;
+            font-size: 0.75rem;
+        }
+        .legend-icon { width: 28px; text-align: center; }
+        hr { margin: 8px 0; border-color: #e0dccc; }
+        .nearby-item {
+            padding: 5px 6px;
+            margin: 3px 0;
+            background: #fef7e0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .badge-dist {
+            background: #cbdcc0;
+            border-radius: 30px;
+            padding: 1px 6px;
+            font-size: 0.65rem;
+        }
+        .route-status {
+            background: #fff4e0;
+            padding: 6px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin-top: 6px;
+        }
+        
+        /* STACKED PANELS - Lower left */
+        .stacked-panels {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 340px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .dashboard-panel, .attractiveness-panel {
+            background: rgba(30, 60, 44, 0.94);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 10px 12px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            border-left: 5px solid #ffd966;
+        }
+        .attractiveness-panel { border-left-color: #ffaa44; background: rgba(30, 45, 35, 0.94); }
+        .dashboard-header, .attract-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,200,0.3);
+            padding-bottom: 4px;
+        }
+        .dashboard-header h4, .attract-header h4 { font-size: 0.85rem; }
+        .dashboard-spot-name, .attract-spot-name {
+            font-size: 0.75rem;
+            background: #00000055;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-bottom: 5px;
+        }
+        canvas#touristChart { max-height: 130px; width: 100%; background: #fffbf0; border-radius: 12px; padding: 5px; }
+        .rating-stars { font-size: 0.9rem; letter-spacing: 1px; margin: 3px 0; }
+        .rating-item { background: rgba(0,0,0,0.4); border-radius: 12px; padding: 6px 8px; margin: 6px 0; font-size: 0.7rem; }
+        .star-gold { color: #ffc107; }
+        .star-grey { color: #6c757d; }
+        
+        /* Offbeat Potential Panel inside sidebar */
+        .offbeat-spot-item {
+            background: #e8f0e3;
+            border-radius: 12px;
+            padding: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: 0.1s;
+            border-left: 3px solid #9b59b6;
+        }
+        .offbeat-spot-item:hover { background: #d4e2ca; transform: scale(0.99); }
+        .potential-score {
+            font-weight: bold;
+            display: inline-block;
+            background: #9b59b6;
+            color: white;
+            border-radius: 30px;
+            padding: 2px 10px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        .factor-badge {
+            font-size: 0.65rem;
+            background: #f0e6d2;
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin: 2px;
+        }
+        .basemap-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .basemap-btn {
+            background: #e0e0d0;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 25px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: 0.1s;
+            font-weight: 500;
+        }
+        .basemap-btn.active {
+            background: #2c6e2c;
+            color: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .basemap-btn:hover { background: #c0d0b0; }
+        
+        /* FOOTER STYLES */
+        .footer {
+            background: #1e3c2c;
+            color: #e0e0c0;
+            text-align: center;
+            padding: 10px 15px;
+            font-size: 0.7rem;
+            border-top: 2px solid #ffd966;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .footer a {
+            color: #ffd966;
+            text-decoration: none;
+        }
+        .footer strong {
+            color: #ffd966;
+        }
+        
+        @media (max-width: 850px) {
+            .stacked-panels { position: relative; bottom: auto; left: auto; width: auto; margin: 8px; }
+            .map-container { flex-direction: column; }
+            #map { height: 45vh; }
+            .sidebar { max-height: 50vh; }
+            .footer { font-size: 0.6rem; padding: 6px; }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>MEGHALAYA SMART TOURISM APPLICATION PLATFORM</h1>
+    <p>A SMART TOURIST INFORMATION SYSTEM (STIS)</p>
+</div>
+<div class="map-container">
+    <div id="map"></div>
+    <div class="sidebar">
+        <div class="basemap-panel">
+            <h3><i class="fas fa-map"></i> Base Map Selector</h3>
+            <div class="basemap-selector">
+                <button id="btnGoogleHybrid" class="basemap-btn"><i class="fab fa-google"></i> Google Hybrid</button>
+                <button id="btnTerrain3D" class="basemap-btn"><i class="fas fa-mountain"></i> 3D Terrain (OpenTopoMap)</button>
+                <button id="btnOSM" class="basemap-btn"><i class="fas fa-street-view"></i> OpenStreetMap</button>
+                <button id="btnCarto" class="basemap-btn"><i class="fas fa-draw-polygon"></i> CartoDB Light</button>
+            </div>
+            <div style="font-size:0.65rem; margin-top:6px; color:#555;"><i class="fas fa-info-circle"></i> 3D Terrain shows elevation shading & hillshade</div>
+        </div>
+
+        <div class="routing-panel">
+            <h3><i class="fas fa-directions"></i> Point-to-Point Routing</h3>
+            <div class="selected-point"><i class="fas fa-play-circle"></i> <strong>Source:</strong> <span id="sourceName">Not set</span></div>
+            <div class="selected-point"><i class="fas fa-flag-checkered"></i> <strong>Destination:</strong> <span id="destName">Not set</span></div>
+            <div>
+                <button id="setSourceBtn" class="btn"><i class="fas fa-map-marker-alt"></i> Set Source</button>
+                <button id="setDestBtn" class="btn"><i class="fas fa-location-dot"></i> Set Dest</button>
+                <button id="clearRouteBtn" class="btn btn-danger"><i class="fas fa-trash-alt"></i> Clear Route</button>
+                <button id="resetSelectionsBtn" class="btn btn-secondary"><i class="fas fa-eraser"></i> Reset All</button>
+            </div>
+            <div class="route-status" id="routeInfo">💡 Click any marker or map point → set source/destination.</div>
+        </div>
+
+        <div class="offbeat-panel" id="offbeatPanel">
+            <h3><i class="fas fa-star-of-life"></i> Offbeat Potential Spots</h3>
+            <div id="offbeatList" style="max-height: 180px; overflow-y: auto;">
+                <i class="fas fa-spinner"></i> Loading offbeat destinations...
+            </div>
+            <div id="offbeatDetail" style="margin-top: 10px; background: #f4f0e6; border-radius: 14px; padding: 8px; font-size:0.75rem;">
+                <i class="fas fa-info-circle"></i> Click on any offbeat spot above or on map (⭐ icon) to see potential score & factors.
+            </div>
+        </div>
+
+        <div class="nearby-panel" id="nearbyPanel">
+            <h3><i class="fas fa-building"></i> Nearby Facilities (15km radius)</h3>
+            <div id="nearbyContent" style="max-height: 160px; overflow-y: auto;">
+                <i class="fas fa-info-circle"></i> Click a <strong>Tourist Spot</strong> (🏔️) to see nearest hotels, civic amenities & transport.
+            </div>
+        </div>
+
+        <div class="legend-section">
+            <h3><i class="fas fa-layer-group"></i> Legend</h3>
+            <div class="legend-item"><div class="legend-icon"><i class="fas fa-mountain" style="color:#d45d2b;"></i></div><div>Tourist Spots (click for arrivals + rating)</div></div>
+            <div class="legend-item"><div class="legend-icon"><i class="fas fa-star" style="color:#9b59b6;"></i></div><div>Offbeat Potential Spots (⭐)</div></div>
+            <div class="legend-item"><div class="legend-icon"><i class="fas fa-hotel" style="color:#2c7da0;"></i></div><div>Hotels & Resorts</div></div>
+            <div class="legend-item"><div class="legend-icon"><i class="fas fa-hospital" style="color:#c44536;"></i></div><div>Civic (Hospitals, Police, Banks)</div></div>
+            <div class="legend-item"><div class="legend-icon"><i class="fas fa-bus" style="color:#3a6b4b;"></i></div><div>Bus / Train / Airport</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Stacked Panels: Dashboard + Attractiveness -->
+<div class="stacked-panels">
+    <div class="dashboard-panel">
+        <div class="dashboard-header"><h4><i class="fas fa-chart-simple"></i> Tourist Arrival Dashboard</h4><i class="fas fa-chart-column"></i></div>
+        <div id="dashboardSpotName" class="dashboard-spot-name">🏔️ Select a tourist spot</div>
+        <canvas id="touristChart" width="300" height="130"></canvas>
+        <div class="dashboard-note" style="font-size:0.6rem; text-align:center;">Data: Meghalaya Tourism Dept estimates (2023-24)</div>
+    </div>
+    <div class="attractiveness-panel">
+        <div class="attract-header"><h4><i class="fas fa-star-of-life"></i> Attractiveness Score (5-point)</h4><i class="fas fa-chart-simple"></i></div>
+        <div id="attractSpotName" class="attract-spot-name">🏔️ Click a tourist spot</div>
+        <div id="attractRatings">
+            <div class="rating-item"><i class="fas fa-users"></i> <strong>Domestic:</strong> <span id="domesticRating">--</span> <span id="domesticStars"></span><br><span id="domesticFactors" style="font-size:0.65rem;"></span></div>
+            <div class="rating-item"><i class="fas fa-globe"></i> <strong>International:</strong> <span id="intlRating">--</span> <span id="intlStars"></span><br><span id="intlFactors" style="font-size:0.65rem;"></span></div>
+        </div>
+    </div>
+</div>
+
+<!-- FOOTER with Team Details -->
+<div class="footer">
+    <i class="fas fa-users"></i> <strong>Prepared by:</strong> Apdaphisha Wriang, Iainehshisha Blah, Mervin Chyne, Peterpaul Kharlyngdoh, Shaipyrkhat Thabah, Rapborlang Suting and Shan Ram (4th Sem, 2026; Dept. of ESRS; JIS University) <br>
+    <i class="fas fa-chalkboard-user"></i> <strong>Under the guidance of:</strong> Dr. Ratnadeep Ray (Assistant Professor; Dept. of ESRS; JIS University)
+</div>
+
+<script>
+    // ---------- MAP INITIALIZATION WITH MULTIPLE BASEMAPS ----------
+    const map = L.map('map').setView([25.55, 91.45], 8.2);
+    
+    // Define base maps
+    const baseMaps = {};
+    
+    // 1. Google Hybrid Satellite
+    const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '&copy; <a href="https://maps.google.com">Google Maps</a>',
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        maxZoom: 20,
+        minZoom: 6
+    });
+    baseMaps['Google Hybrid'] = googleHybrid;
+    
+    // 2. 3D Terrain Map using OpenTopoMap (shows relief)
+    const terrain3D = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> contributors, CC-BY-SA',
+        maxZoom: 17,
+        minZoom: 6
+    });
+    baseMaps['3D Terrain (OpenTopoMap)'] = terrain3D;
+    
+    // 3. OpenStreetMap standard
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors',
+        maxZoom: 19
+    });
+    baseMaps['OpenStreetMap'] = osm;
+    
+    // 4. CartoDB Light
+    const cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
+        subdomains: 'abcd',
+        maxZoom: 19
+    });
+    baseMaps['CartoDB Light'] = cartoLight;
+    
+    // Add default base map (Google Hybrid)
+    googleHybrid.addTo(map);
+    
+    // Add layer control for base maps
+    L.control.layers(baseMaps, null, { position: 'topright', collapsed: true }).addTo(map);
+    
+    // Handle base map switching via buttons
+    document.getElementById('btnGoogleHybrid').addEventListener('click', () => {
+        map.removeLayer(googleHybrid); map.removeLayer(terrain3D); map.removeLayer(osm); map.removeLayer(cartoLight);
+        googleHybrid.addTo(map); updateActiveButton('btnGoogleHybrid');
+    });
+    document.getElementById('btnTerrain3D').addEventListener('click', () => {
+        map.removeLayer(googleHybrid); map.removeLayer(terrain3D); map.removeLayer(osm); map.removeLayer(cartoLight);
+        terrain3D.addTo(map); updateActiveButton('btnTerrain3D');
+    });
+    document.getElementById('btnOSM').addEventListener('click', () => {
+        map.removeLayer(googleHybrid); map.removeLayer(terrain3D); map.removeLayer(osm); map.removeLayer(cartoLight);
+        osm.addTo(map); updateActiveButton('btnOSM');
+    });
+    document.getElementById('btnCarto').addEventListener('click', () => {
+        map.removeLayer(googleHybrid); map.removeLayer(terrain3D); map.removeLayer(osm); map.removeLayer(cartoLight);
+        cartoLight.addTo(map); updateActiveButton('btnCarto');
+    });
+    
+    function updateActiveButton(activeId) {
+        ['btnGoogleHybrid','btnTerrain3D','btnOSM','btnCarto'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (id === activeId) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+    }
+    updateActiveButton('btnGoogleHybrid');
+
+    // ======================= OFFBEAT POTENTIAL SPOTS =======================
+    const offbeatSpots = [
+        { name: "Nongriat Village (Double Decker Bridge)", lat: 25.2429, lng: 91.7417, potential: 5, factors: "Natural Beauty, Unique Bio-Engineering, UNESCO potential, Eco-tourism hotspot, Trekking Adventure." },
+        { name: "Jarain Pitcher Plant Lake", lat: 25.3981, lng: 92.3189, potential: 4.5, factors: "Ecological Importance (Carnivorous Plants), Rare Ecosystem, Limestone Terrain, Wildlife." },
+        { name: "Ranikor & Baghmara Caves", lat: 25.1888, lng: 90.6003, potential: 4, factors: "Speleology, Underground rivers, Remote Tribal Culture, Unexplored Caves." },
+        { name: "Siju Bird Sanctuary & Cave", lat: 25.3512, lng: 90.6834, potential: 4.5, factors: "Biodiversity Hotspot, Bat Caves, Rare Birds, Eco-tourism Potential." },
+        { name: "Mawsynram Eco Caves", lat: 25.3009, lng: 91.5767, potential: 4, factors: "Wettest place, Cave exploration, Adventure tourism, Local Khasi traditions." },
+        { name: "Phe Phe Falls (Jaintia Hills)", lat: 25.2567, lng: 92.3876, potential: 4, factors: "Offbeat Waterfall, Pristine Forest, Local Legends, Photography." },
+        { name: "Nongkhyllem Wildlife Sanctuary", lat: 25.8102, lng: 91.3387, potential: 3.5, factors: "Rich Avifauna, Elephant Corridor, Lesser-known Sanctuary." },
+        { name: "Tura Peak & Rongbang Dare", lat: 25.5175, lng: 90.2284, potential: 3.5, factors: "Garo Hills Panorama, Cultural Heritage, Sacred Groves." },
+        { name: "Rambrai (Mawryngkhang Trek)", lat: 25.7301, lng: 91.4892, potential: 4, factors: "Ridge Trekking, Suspension Bridge, Breathtaking Valleys." },
+        { name: "Larnai (Stonehenge-like Megaliths)", lat: 25.4942, lng: 92.1356, potential: 3.5, factors: "Megalithic Culture, Archaeological Interest, Khasi History." }
+    ];
+
+    // Regular tourist spots
+    const touristSpots = [
+        { name: "Cherrapunji (Sohra)", lat: 25.3006, lng: 91.6966, desc: "Living root bridges, wettest place." },
+        { name: "Mawsynram", lat: 25.3009, lng: 91.5767, desc: "World's wettest place." },
+        { name: "Dawki River (Umngot)", lat: 25.1905, lng: 92.0302, desc: "Crystal clear river." },
+        { name: "Shillong Peak", lat: 25.5469, lng: 91.8767, desc: "Panoramic view." },
+        { name: "Elephant Falls", lat: 25.5465, lng: 91.8158, desc: "Three-tiered waterfall." },
+        { name: "Nohkalikai Falls", lat: 25.2765, lng: 91.6853, desc: "Tallest plunge fall." },
+        { name: "Double Decker Root Bridge", lat: 25.2429, lng: 91.7417, desc: "UNESCO tentative." },
+        { name: "Mawphlang Sacred Forest", lat: 25.4383, lng: 91.7647, desc: "Sacred grove." },
+        { name: "Krang Suri Falls", lat: 25.4437, lng: 92.1565, desc: "Turquoise pool." },
+        { name: "Balpakram National Park", lat: 25.3661, lng: 90.8028, desc: "Remote wilderness." },
+        { name: "Laitlum Canyons", lat: 25.6047, lng: 91.8724, desc: "Breathtaking ridge." },
+        { name: "Mawsmai Cave", lat: 25.2814, lng: 91.6986, desc: "Limestone cave." }
+    ];
+
+    const attractivenessData = {
+        "Cherrapunji (Sohra)": { domestic: 5, domesticFactors: "Iconic waterfalls, living root bridges, cultural heritage.", intl: 5, intlFactors: "Global fame for highest rainfall, unique root bridges." },
+        "Mawsynram": { domestic: 4, domesticFactors: "Record rainfall, cave exploration.", intl: 4.5, intlFactors: "World record precipitation, adventure seekers." },
+        "Dawki River (Umngot)": { domestic: 5, domesticFactors: "Transparent water, boating, border tourism.", intl: 4.5, intlFactors: "Crystal-clear river, Instagram fame." },
+        "Shillong Peak": { domestic: 4, domesticFactors: "Panoramic view, easy access.", intl: 3.5, intlFactors: "Good viewpoint, moderate recognition." },
+        "Elephant Falls": { domestic: 4, domesticFactors: "Close to Shillong, photogenic.", intl: 3, intlFactors: "Pleasant but overshadowed." },
+        "Nohkalikai Falls": { domestic: 5, domesticFactors: "India's tallest plunge fall.", intl: 5, intlFactors: "Globally recognized waterfall." },
+        "Double Decker Root Bridge": { domestic: 5, domesticFactors: "UNESCO contender, trekking.", intl: 5, intlFactors: "World-famous living root bridge." },
+        "Mawphlang Sacred Forest": { domestic: 3.5, domesticFactors: "Cultural significance.", intl: 4, intlFactors: "Intrigues anthropologists." },
+        "Krang Suri Falls": { domestic: 4.5, domesticFactors: "Turquoise waters, less crowded.", intl: 4, intlFactors: "Hidden gem, social media." },
+        "Balpakram National Park": { domestic: 3, domesticFactors: "Remote wildlife.", intl: 3.5, intlFactors: "Offbeat, researchers." },
+        "Laitlum Canyons": { domestic: 4, domesticFactors: "Breathtaking canyons.", intl: 3.5, intlFactors: "Emerging spot." },
+        "Mawsmai Cave": { domestic: 4, domesticFactors: "Easily accessible.", intl: 3, intlFactors: "Moderate appeal." }
+    };
+    const touristArrivalData = {
+        "Cherrapunji (Sohra)": { domestic: 185000, international: 42000 }, "Mawsynram": { domestic: 78000, international: 8500 }, "Dawki River (Umngot)": { domestic: 210000, international: 31500 },
+        "Shillong Peak": { domestic: 305000, international: 52000 }, "Elephant Falls": { domestic: 168000, international: 22000 }, "Nohkalikai Falls": { domestic: 196000, international: 38000 },
+        "Double Decker Root Bridge": { domestic: 95000, international: 28000 }, "Mawphlang Sacred Forest": { domestic: 52000, international: 7800 }, "Krang Suri Falls": { domestic: 88000, international: 9400 },
+        "Balpakram National Park": { domestic: 27000, international: 3200 }, "Laitlum Canyons": { domestic: 66000, international: 10500 }, "Mawsmai Cave": { domestic: 112000, international: 14500 }
+    };
+
+    function renderStars(rating) {
+        let full = Math.floor(rating), half = (rating % 1) >= 0.5 ? 1 : 0, stars = "";
+        for (let i=0; i<full; i++) stars += "<i class='fas fa-star star-gold'></i>";
+        if (half) stars += "<i class='fas fa-star-half-alt star-gold'></i>";
+        for (let i=0; i<5-full-half; i++) stars += "<i class='far fa-star star-grey'></i>";
+        return stars;
+    }
+
+    let touristChart = null;
+    function renderDashboard(spotName) {
+        const data = touristArrivalData[spotName];
+        if (!data) { document.getElementById('dashboardSpotName').innerHTML = `🏔️ ${spotName} (No data)`; if(touristChart) touristChart.data.datasets[0].data=[0,0]; touristChart?.update(); return; }
+        document.getElementById('dashboardSpotName').innerHTML = `🏔️ ${spotName} | Annual arrivals`;
+        if (touristChart) { touristChart.data.datasets[0].data = [data.domestic, data.international]; touristChart.update(); }
+        else {
+            const ctx = document.getElementById('touristChart').getContext('2d');
+            touristChart = new Chart(ctx, { type: 'bar', data: { labels: ['Domestic', 'International'], datasets: [{ label: 'Visitors', data: [data.domestic, data.international], backgroundColor: ['#2c7da0', '#d45d2b'], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top', labels: { font: { size: 8 } } } }, scales: { y: { ticks: { callback: v => v/1000+'k', font: { size: 8 } } } } } });
+        }
+    }
+    function renderAttractiveness(spotName) {
+        const attr = attractivenessData[spotName];
+        if (!attr) { document.getElementById('attractSpotName').innerHTML = `🏔️ ${spotName}`; return; }
+        document.getElementById('attractSpotName').innerHTML = `🏔️ ${spotName} | Score`;
+        document.getElementById('domesticRating').innerHTML = `${attr.domestic}/5`; document.getElementById('domesticStars').innerHTML = renderStars(attr.domestic);
+        document.getElementById('domesticFactors').innerHTML = `<i class="fas fa-list-ul"></i> ${attr.domesticFactors}`;
+        document.getElementById('intlRating').innerHTML = `${attr.intl}/5`; document.getElementById('intlStars').innerHTML = renderStars(attr.intl);
+        document.getElementById('intlFactors').innerHTML = `<i class="fas fa-globe"></i> ${attr.intlFactors}`;
+    }
+
+    // ICONS and MARKER functions (simplified but complete)
+    function createIcon(iconHtml, bgColor, size=32) {
+        return L.divIcon({ html: `<div style="background-color:${bgColor};width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:2px solid white;">${iconHtml}</div>`, iconSize: [size,size], popupAnchor: [0,-12] });
+    }
+    const touristIcon = createIcon('<i class="fas fa-mountain" style="color:white;font-size:1rem;"></i>', '#d45d2b');
+    const offbeatIcon = createIcon('<i class="fas fa-star" style="color:white;font-size:0.9rem;"></i>', '#9b59b6', 30);
+    const hotelIcon = createIcon('<i class="fas fa-hotel" style="color:white;font-size:0.8rem;"></i>', '#2c7da0', 28);
+    const civicIcon = createIcon('<i class="fas fa-hospital" style="color:white;font-size:0.8rem;"></i>', '#c44536', 28);
+    const busIcon = createIcon('<i class="fas fa-bus" style="color:white;font-size:0.7rem;"></i>', '#3a6b4b', 28);
+    const trainIcon = createIcon('<i class="fas fa-train" style="color:white;font-size:0.7rem;"></i>', '#5e3a1c', 28);
+    const airportIcon = createIcon('<i class="fas fa-plane" style="color:white;font-size:0.7rem;"></i>', '#2f6b9f', 28);
+
+    const hotels = [{ name:"Ri Kynjai Resort", lat:25.6712,lng:91.9019,desc:"Luxury lake resort"},{ name:"Hotel Centre Point", lat:25.5769,lng:91.8946,desc:"Central"},{ name:"Vivanta", lat:25.5602,lng:91.8861,desc:"Premium"},{ name:"Cherrapunji Holiday Resort", lat:25.2838,lng:91.7125,desc:"Valley views"}];
+    const civic = [{ name:"Shillong Civil Hospital", lat:25.5721,lng:91.8888,desc:"Govt hospital"},{ name:"NEIGRIHMS", lat:25.5574,lng:91.8692,desc:"Medical institute"},{ name:"Tura Hospital", lat:25.5147,lng:90.2075,desc:"District hospital"}];
+    const transport = [{ name:"Shillong ISBT", lat:25.5813,lng:91.8969,type:"bus"},{ name:"Mendipathar Railway", lat:25.8256,lng:90.6094,type:"train"},{ name:"Shillong Airport", lat:25.7023,lng:91.9782,type:"airport"},{ name:"Tura Bus Stand", lat:25.5138,lng:90.2106,type:"bus"}];
+
+    let allMarkers = { tourist: [], offbeat: [], hotels: [], civic: [], transport: [] };
+    const touristGroup = L.markerClusterGroup(); const offbeatGroup = L.markerClusterGroup(); const hotelGroup = L.markerClusterGroup(); const civicGroup = L.markerClusterGroup(); const transportGroup = L.markerClusterGroup();
+
+    function addMarker(group, lat, lng, name, category, desc, icon, storeArr, extraData=null) {
+        const marker = L.marker([lat,lng], { icon });
+        marker.bindPopup(`<b>${category}: ${name}</b><br>${desc || ''}`);
+        marker.properties = { name, lat, lng, category, desc, extraData };
+        marker.on('click', () => {
+            window.lastClickedPoint = { lat, lng, name, desc };
+            updateSelectionPreview();
+            if (category === 'Tourist Spot') { renderDashboard(name); renderAttractiveness(name); findNearby(lat, lng, name); }
+            else if (category === 'Offbeat Potential') { showOffbeatDetail(name, extraData); }
+        });
+        group.addLayer(marker); storeArr.push(marker);
+    }
+
+    touristSpots.forEach(s => addMarker(touristGroup, s.lat, s.lng, s.name, 'Tourist Spot', s.desc, touristIcon, allMarkers.tourist));
+    offbeatSpots.forEach(o => addMarker(offbeatGroup, o.lat, o.lng, o.name, 'Offbeat Potential', `Potential: ${o.potential}/5`, offbeatIcon, allMarkers.offbeat, o));
+    hotels.forEach(h => addMarker(hotelGroup, h.lat, h.lng, h.name, 'Hotel', h.desc, hotelIcon, allMarkers.hotels));
+    civic.forEach(c => addMarker(civicGroup, c.lat, c.lng, c.name, 'Civic', c.desc, civicIcon, allMarkers.civic));
+    transport.forEach(t => { let icon = t.type==='bus'?busIcon:(t.type==='train'?trainIcon:airportIcon); let cat = t.type==='bus'?'Bus Stop':(t.type==='train'?'Railway':'Airport'); addMarker(transportGroup, t.lat, t.lng, t.name, cat, t.type, icon, allMarkers.transport); });
+
+    map.addLayer(touristGroup); map.addLayer(offbeatGroup); map.addLayer(hotelGroup); map.addLayer(civicGroup); map.addLayer(transportGroup);
+    L.control.layers(null, { "🏞️ Tourist Spots": touristGroup, "⭐ Offbeat Potential": offbeatGroup, "🏨 Hotels": hotelGroup, "🏥 Civic": civicGroup, "🚍 Transport": transportGroup }, { collapsed: false, position: 'topright' }).addTo(map);
+
+    function showOffbeatDetail(name, spotData) {
+        const factorsHtml = spotData.factors.split(',').map(f => `<span class="factor-badge"><i class="fas fa-check-circle"></i> ${f.trim()}</span>`).join('');
+        document.getElementById('offbeatDetail').innerHTML = `<div style="font-weight:bold;">⭐ ${name}</div><div><strong>Potentiality Score:</strong> ${spotData.potential}/5 ${renderStars(spotData.potential)}</div><div><strong>Causes / Factors:</strong><br> ${factorsHtml}</div><small><i class="fas fa-map-marker-alt"></i> Click marker for popup</small>`;
+    }
+    function buildOffbeatList() {
+        let html = '';
+        offbeatSpots.forEach(spot => {
+            html += `<div class="offbeat-spot-item" data-lat="${spot.lat}" data-lng="${spot.lng}" data-name="${spot.name}"><i class="fas fa-star" style="color:#9b59b6;"></i> <strong>${spot.name}</strong> <span class="potential-score">Potential: ${spot.potential}/5</span><br><small>${spot.factors.substring(0,60)}...</small></div>`;
+        });
+        document.getElementById('offbeatList').innerHTML = html;
+        document.querySelectorAll('.offbeat-spot-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const lat = parseFloat(el.dataset.lat), lng = parseFloat(el.dataset.lng), name = el.dataset.name;
+                const spot = offbeatSpots.find(s => s.name === name);
+                if (spot) { showOffbeatDetail(name, spot); map.flyTo([lat, lng], 12); }
+            });
+        });
+    }
+    buildOffbeatList();
+
+    // Nearby and Routing functions (simplified but functional)
+    const RADIUS_KM = 15;
+    function haversine(lat1,lng1,lat2,lng2) { const R=6371; const dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180; const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2; return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); }
+    function clearHighlights() { [allMarkers.hotels, allMarkers.civic, allMarkers.transport].forEach(arr => arr.forEach(m => { if(m._highlighted && m._originalIcon) { m.setIcon(m._originalIcon); m._highlighted=false; } })); }
+    function findNearby(clat, clng, spotName) {
+        clearHighlights();
+        let nearbyHotels=[], nearbyCivic=[], nearbyTransport=[];
+        allMarkers.hotels.forEach(m=>{ let d=haversine(clat,clng,m.getLatLng().lat,m.getLatLng().lng); if(d<=RADIUS_KM) nearbyHotels.push({name:m.properties.name,dist:d.toFixed(1)}); });
+        allMarkers.civic.forEach(m=>{ let d=haversine(clat,clng,m.getLatLng().lat,m.getLatLng().lng); if(d<=RADIUS_KM) nearbyCivic.push({name:m.properties.name,dist:d.toFixed(1)}); });
+        allMarkers.transport.forEach(m=>{ let d=haversine(clat,clng,m.getLatLng().lat,m.getLatLng().lng); if(d<=RADIUS_KM) nearbyTransport.push({name:m.properties.name,dist:d.toFixed(1)}); });
+        let html = `<div><strong>Nearby ${spotName}</strong> (${RADIUS_KM}km)</div>`;
+        if(nearbyHotels.length) html+=`<div><i class="fas fa-hotel"></i> Hotels: ${nearbyHotels.map(h=>`<div class="nearby-item">🏨 ${h.name} (${h.dist}km)</div>`).join('')}</div>`;
+        if(nearbyCivic.length) html+=`<div><i class="fas fa-hospital"></i> Civic: ${nearbyCivic.map(c=>`<div class="nearby-item">🏥 ${c.name} (${c.dist}km)</div>`).join('')}</div>`;
+        if(nearbyTransport.length) html+=`<div><i class="fas fa-bus"></i> Transport: ${nearbyTransport.map(t=>`<div class="nearby-item">🚌 ${t.name} (${t.dist}km)</div>`).join('')}</div>`;
+        if(!nearbyHotels.length && !nearbyCivic.length && !nearbyTransport.length) html+=`<div>No facilities within ${RADIUS_KM}km.</div>`;
+        document.getElementById('nearbyContent').innerHTML = html;
+    }
+
+    let routingControl=null, currentSource=null, currentDestination=null;
+    function updateSelectionPreview() { document.getElementById('sourceName').innerHTML = currentSource ? `${currentSource.name}` : (window.lastClickedPoint?.name || "Not set"); document.getElementById('destName').innerHTML = currentDestination ? `${currentDestination.name}` : (window.lastClickedPoint?.name || "Not set"); }
+    document.getElementById('setSourceBtn').onclick = () => { if(window.lastClickedPoint) { currentSource={...window.lastClickedPoint}; updateSelectionPreview(); if(currentSource && currentDestination) drawRoute(); else document.getElementById('routeInfo').innerHTML="Set both points."; } else alert("Click marker or map first."); };
+    document.getElementById('setDestBtn').onclick = () => { if(window.lastClickedPoint) { currentDestination={...window.lastClickedPoint}; updateSelectionPreview(); if(currentSource && currentDestination) drawRoute(); else document.getElementById('routeInfo').innerHTML="Set both points."; } else alert("Click first."); };
+    function drawRoute() { if(routingControl) map.removeControl(routingControl); routingControl = L.Routing.control({ waypoints: [L.latLng(currentSource.lat, currentSource.lng), L.latLng(currentDestination.lat, currentDestination.lng)], routeWhileDragging: false, showAlternatives: false, fitSelectedRoutes: true, lineOptions: { styles: [{ color: '#c0392b', weight: 5 }] }, router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1', profile: 'driving' }), summaryTemplate: '<div>{distance} km, {time} min</div>' }).addTo(map); routingControl.on('routesfound', e => { let d=(e.routes[0].summary.totalDistance/1000).toFixed(1), t=Math.round(e.routes[0].summary.totalTime/60); document.getElementById('routeInfo').innerHTML = `✅ Route: ${currentSource.name} → ${currentDestination.name}<br>📏 ${d} km | ⏱️ ${t} min`; }); }
+    document.getElementById('clearRouteBtn').onclick = () => { if(routingControl) map.removeControl(routingControl); routingControl=null; document.getElementById('routeInfo').innerHTML="Route cleared."; };
+    document.getElementById('resetSelectionsBtn').onclick = () => { currentSource=null; currentDestination=null; if(routingControl) map.removeControl(routingControl); routingControl=null; window.lastClickedPoint=null; updateSelectionPreview(); clearHighlights(); document.getElementById('nearbyContent').innerHTML='<i class="fas fa-info-circle"></i> Click a Tourist Spot for nearby facilities.'; document.getElementById('dashboardSpotName').innerHTML='🏔️ Select a spot'; document.getElementById('attractSpotName').innerHTML='🏔️ Click a tourist spot'; if(touristChart){ touristChart.data.datasets[0].data=[0,0]; touristChart.update(); } };
+    map.on('click', (e) => { window.lastClickedPoint = { lat: e.latlng.lat, lng: e.latlng.lng, name: `Map point`, desc: 'Custom' }; updateSelectionPreview(); });
+    updateSelectionPreview();
+    if(touristSpots.length) { renderDashboard(touristSpots[0].name); renderAttractiveness(touristSpots[0].name); }
+</script>
+</body>
+</html>
